@@ -1,0 +1,48 @@
+name: Velox CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.56
+          working-directory: backend
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install System Dependencies (Compilers / Runtimes)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ default-jdk python3 nodejs npm
+
+      - name: Install TypeScript
+        run: sudo npm install -g typescript
+
+      - name: Run Backend End-to-End Execution Tests
+        working-directory: backend
+        run: |
+          go mod tidy
+          go test -v -race ./...

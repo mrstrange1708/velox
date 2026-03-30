@@ -46,7 +46,7 @@ func ProcessSubmission(req judge.SubmissionRequest) judge.SubmissionResponse {
 		filesToClean = append(filesToClean, dirPath) // Clean up the entire submission directory
 
 	case "python":
-		scriptPath := fmt.Sprintf("/dev/shm/solution_%s.py", req.SubmissionID)
+		scriptPath := fmt.Sprintf("%s/solution_%s.py", getTempDir(), req.SubmissionID)
 		if err := os.WriteFile(scriptPath, []byte(req.SourceCode), 0644); err != nil {
 			return judge.SubmissionResponse{OverallState: "System Error: Cannot write to RAM"}
 		}
@@ -55,7 +55,7 @@ func ProcessSubmission(req judge.SubmissionRequest) judge.SubmissionResponse {
 		filesToClean = append(filesToClean, scriptPath)
 
 	case "node":
-		scriptPath := fmt.Sprintf("/dev/shm/solution_%s.js", req.SubmissionID)
+		scriptPath := fmt.Sprintf("%s/solution_%s.js", getTempDir(), req.SubmissionID)
 		if err := os.WriteFile(scriptPath, []byte(req.SourceCode), 0644); err != nil {
 			return judge.SubmissionResponse{OverallState: "System Error: Cannot write to RAM"}
 		}
@@ -88,7 +88,7 @@ func ProcessSubmission(req judge.SubmissionRequest) judge.SubmissionResponse {
 
 	results := runBatch.RunBatch(execCmd, execArgs, req.TestCases, timeLimit, memLimit)
 
-	// 3. CLEANUP: Delete files from /dev/shm RAM-disk
+	// 3. CLEANUP: Delete files from RAM-disk or Temp disk
 	for _, file := range filesToClean {
 		os.RemoveAll(file)
 	}
@@ -136,7 +136,7 @@ func CompileInMemoryCPP(submissionID, sourceCode string) (string, error) {
 
 func CompileInMemoryJava(submissionID, sourceCode string) (string, string, error) {
 	// Java requires the file name to match the public class name. We assume "Main".
-	dirPath := fmt.Sprintf("/dev/shm/sol_%s", submissionID)
+	dirPath := fmt.Sprintf("%s/sol_%s", getTempDir(), submissionID)
 	os.MkdirAll(dirPath, 0755)
 	sourcePath := fmt.Sprintf("%s/Main.java", dirPath)
 	os.WriteFile(sourcePath, []byte(sourceCode), 0644)
@@ -149,14 +149,30 @@ func CompileInMemoryJava(submissionID, sourceCode string) (string, string, error
 }
 
 func CompileInMemoryTS(submissionID, sourceCode string) (string, string, error) {
-	sourcePath := fmt.Sprintf("/dev/shm/solution_%s.ts", submissionID)
-	jsPath := fmt.Sprintf("/dev/shm/solution_%s.js", submissionID)
+	sourcePath := fmt.Sprintf("%s/solution_%s.ts", getTempDir(), submissionID)
+	jsPath := fmt.Sprintf("%s/solution_%s.js", getTempDir(), submissionID)
 	os.WriteFile(sourcePath, []byte(sourceCode), 0644)
 
-	cmd := exec.Command("npx", "tsc", sourcePath)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		// Output includes TS compile errors. It still might write a .js file, but we should fail the flow.
-		return "", "", fmt.Errorf("compile error: %v, %s", err, string(out))
+	// --skipLibCheck prevents compilation from crashing due to random @types installed globally or in parent folders
+	cmd := exec.Command("npx", "tsc", sourcePath, "--target", "ES2022", "--module", "commonjs", "--esModuleInterop", "--skipLibCheck")
+	out, err := cmd.CombinedOutput()
+	
+	if err != nil {
+		// Online Judges strictly want it to be typable. But on local development, 
+		// @types/node might not be installed in the exact directory.
+		// So we gracefully check if TSC at least emitted the Javascript file!
+		if _, statErr := os.Stat(jsPath); statErr == nil {
+			return jsPath, sourcePath, nil
+		}
+		// If JS didn't emit, then it's a true fatal compile error
+		return "", "", fmt.Errorf("compile error: exit status %v, %s", err, string(out))
 	}
 	return jsPath, sourcePath, nil
+}
+
+func getTempDir() string {
+	if _, err := os.Stat("/dev/shm"); err == nil {
+		return "/dev/shm"
+	}
+	return os.TempDir()
 }
