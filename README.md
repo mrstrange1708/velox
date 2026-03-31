@@ -1,4 +1,4 @@
-# Velox 🚀
+# Velox
 
 Velox is a high-performance, containerized code execution engine (Online Judge) built with Go and Docker. It allows you to submit code in various languages, execute it against multiple test cases, and receive detailed resource usage (time and memory) along with execution status.
 
@@ -7,6 +7,7 @@ Velox is a high-performance, containerized code execution engine (Online Judge) 
 The project is split into two main services: an **API Server** and a **Worker**.
 
 ### `backend/`
+
 Core Go application logic.
 
 - **`cmd/`**
@@ -18,12 +19,14 @@ Core Go application logic.
 - **`shared/redis/`**: Basic Redis wrapper for pushing/popping submissions and results.
 
 ### `build/`
+
 Contains infrastructure configuration.
 
 - **`Dockerfile.api`**: Minimal Go runtime for the API service.
 - **`Dockerfile.worker`**: Full-featured image containing compilers (gcc, g++, javac) and runtimes (python, node, openjdk) required for judging.
 
 ### `docker-compose.yml`
+
 Orchestrates the `api`, `worker`, and `redis` services into a single local environment.
 
 ---
@@ -48,17 +51,20 @@ Orchestrates the `api`, `worker`, and `redis` services into a single local envir
 Ensure you have **Docker** and **Docker Compose** installed.
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/RISHIK92/velox.git
    cd velox
    ```
 
 2. **Spin up the stack:**
+
    ```bash
    docker compose up --build
    ```
 
 3. **Test a submission:**
+
    ```bash
    curl -X POST http://localhost:8080/submit \
      -H "Content-Type: application/json" \
@@ -81,18 +87,21 @@ Ensure you have **Docker** and **Docker Compose** installed.
 We welcome contributions! To help you get started:
 
 ### Adding a New Language Support
+
 1. **Update `backend/judge/judje.go`**: Add the language string to comments if needed.
-2. **Update `backend/processSubmission/ProcessSubmission.go`**: 
+2. **Update `backend/processSubmission/ProcessSubmission.go`**:
    - Add a new `case` in the `switch` block.
    - Implement a compiler/preparer function (similar to `CompileInMemoryCPP`).
 3. **Update `build/Dockerfile.worker`**: Ensure the necessary compiler or runtime is installed in the worker image.
 
 ### Development Workflow
+
 - **Code Style**: We follow standard Go formatting (`go fmt`).
 - **Testing**: Use the provided `curl` samples to verify your changes.
 - **Watch Mode**: You can use `docker compose watch` (if supported by your version) to automatically rebuild services when files in `backend/` change.
 
 ### Steps to Contribute
+
 1. Fork the repo.
 2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
