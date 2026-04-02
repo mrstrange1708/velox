@@ -3,6 +3,7 @@ package runBatch
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -18,10 +19,8 @@ func RunBatch(execCmd string, execArgs []string, testCases []judge.TestCase, tim
 	for _, tc := range testCases {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeLimitMs)*time.Millisecond)
 		
-		// Setup the command (e.g., "python3 /dev/shm/solution_123.py" OR "/dev/shm/solution_123.out")
 		cmd := exec.CommandContext(ctx, execCmd, execArgs...)
 
-		// Pipe input from RAM directly to the process
 		cmd.Stdin = strings.NewReader(tc.Input)
 
 		var stdout bytes.Buffer
@@ -31,13 +30,11 @@ func RunBatch(execCmd string, execArgs []string, testCases []judge.TestCase, tim
 
 		err := cmd.Run()
 
-		// --- RESOURCE TRACKING ---
 		var timeMs int64
 		var memoryKb int64
 		if cmd.ProcessState != nil {
 			timeMs = (cmd.ProcessState.UserTime() + cmd.ProcessState.SystemTime()).Milliseconds()
 			if rusage, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
-				// On Linux, Maxrss is reported in Kilobytes. On macOS, it is reported in Bytes!
 				if runtime.GOOS == "darwin" {
 					memoryKb = int64(rusage.Maxrss) / 1024
 				} else {
@@ -47,6 +44,8 @@ func RunBatch(execCmd string, execArgs []string, testCases []judge.TestCase, tim
 		}
 
 		stderrStr := strings.TrimSpace(stderr.String())
+		actual := strings.TrimSpace(stdout.String())
+		expected := strings.TrimSpace(tc.ExpectedOutput)
 
 		if memoryLimitKb > 0 && memoryKb > int64(memoryLimitKb) {
 			results = append(results, judge.TestCaseResult{
@@ -55,6 +54,8 @@ func RunBatch(execCmd string, execArgs []string, testCases []judge.TestCase, tim
 				Stderr:   stderrStr,
 				TimeMs:   timeMs,
 				MemoryKb: memoryKb,
+				Input: actual,
+				ExpectedOutput: expected,
 			})
 			cancel()
 			continue
@@ -67,26 +68,28 @@ func RunBatch(execCmd string, execArgs []string, testCases []judge.TestCase, tim
 				Stderr:   stderrStr,
 				TimeMs:   timeMs,
 				MemoryKb: memoryKb,
+				Input: actual,
+				ExpectedOutput: expected,
 			})
 			cancel()
 			// break // Fail-Fast: Stop running the rest of the 20 cases
 			continue
 		}
 		if err != nil {
+			fmt.Printf("DEBUG: Command failed for TestCase %d: %v, Stderr: %s\n", tc.TestCaseID, err, stderrStr)
 			results = append(results, judge.TestCaseResult{
 				TestCaseID: tc.TestCaseID, 
 				Status: "Runtime Error",
 				Stderr:   stderrStr,
 				TimeMs:   timeMs,
 				MemoryKb: memoryKb,
+				Input: actual,
+				ExpectedOutput: expected,
 			})
 			cancel()
 			// break
 			continue
 		}
-
-		actual := strings.TrimSpace(stdout.String())
-		expected := strings.TrimSpace(tc.ExpectedOutput)
 
 		if actual == expected {
 			results = append(results, judge.TestCaseResult{
@@ -94,14 +97,17 @@ func RunBatch(execCmd string, execArgs []string, testCases []judge.TestCase, tim
 				Status: "Accepted",
 				TimeMs: timeMs,
 				MemoryKb: memoryKb,
+				Input: actual,
+				ExpectedOutput: expected,
 			})
 		} else {
 			results = append(results, judge.TestCaseResult{
-				TestCaseID: tc.TestCaseID, 
-				Status: "Wrong Answer", 
-				ActualOutput: actual, // Only send actual output back if it failed, helps with debugging!
+				TestCaseID: tc.TestCaseID,
+				Status: "Wrong Answer",
 				TimeMs: timeMs,
 				MemoryKb: memoryKb,
+				Input: actual,
+				ExpectedOutput: expected,
 			})
 			cancel()
 			// break
@@ -110,6 +116,6 @@ func RunBatch(execCmd string, execArgs []string, testCases []judge.TestCase, tim
 		
 		cancel()
 	}
-
 	return results
+
 }
