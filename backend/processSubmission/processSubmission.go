@@ -157,16 +157,16 @@ func CompileInMemoryJava(submissionID, sourceCode string) (string, string, error
 }
 
 func CompileInMemoryTS(submissionID, sourceCode string) (string, string, error) {
-	sourcePath := filepath.Join(os.TempDir(), fmt.Sprintf("solution_%s.ts", submissionID))
-	jsPath := filepath.Join(os.TempDir(), fmt.Sprintf("solution_%s.js", submissionID))
-	os.WriteFile(sourcePath, []byte(sourceCode), 0644)
+    sourcePath := fmt.Sprintf("/dev/shm/solution_%s.ts", submissionID)
+    jsPath := fmt.Sprintf("/dev/shm/solution_%s.js", submissionID)
+    os.WriteFile(sourcePath, []byte(sourceCode), 0644)
 
-	// Use tsc for TS to JS compilation with type checking
-	cmd := exec.Command("npx", "tsc", sourcePath, "--skipLibCheck")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return jsPath, sourcePath, fmt.Errorf("compile error: %s", string(out))
-	}
-	return jsPath, sourcePath, nil
+    cmd := exec.Command("esbuild", sourcePath, "--outfile="+jsPath, "--platform=node", "--format=cjs")
+    
+    if out, err := cmd.CombinedOutput(); err != nil {
+        return jsPath, sourcePath, fmt.Errorf("compile error: %s", string(out))
+    }
+    return jsPath, sourcePath, nil
 }
 
 func CompileInMemoryCSharp(submissionID, sourceCode string) (string, string, error) {

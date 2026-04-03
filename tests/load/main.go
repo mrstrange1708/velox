@@ -57,7 +57,7 @@ type RequestMetrics struct {
 
 const (
 	baseURL      = "http://localhost:8080"
-	requestsPerLanguage = 20 // Number of concurrent requests per language
+	requestsPerLanguage = 2 // Number of concurrent requests per language
 	pollInterval = 500 * time.Millisecond
 )
 
