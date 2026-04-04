@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/rishik92/velox/judge"
-	"github.com/rishik92/velox/runBatch"
 )
 
 type SystemError struct {
@@ -22,10 +21,52 @@ type LanguageStrategy interface {
 	Prepare(submissionID string, sourceCode string) (execCmd string, execArgs []string, filesToClean []string, err error)
 }
 
-var strategies = make(map[string]LanguageStrategy)
+type BatchRunner interface {
+	RunBatch(execCmd string, execArgs []string, testCases []judge.TestCase, timeLimitMs int, memoryLimitKb int) []judge.TestCaseResult
+}
 
-func RegisterStrategy(language string, strategy LanguageStrategy) {
-	strategies[language] = strategy
+type StrategyRegistry interface {
+	Get(language string) (LanguageStrategy, bool)
+	Register(language string, strategy LanguageStrategy)
+}
+
+type DefaultStrategyRegistry struct {
+	strategies map[string]LanguageStrategy
+}
+
+func NewDefaultRegistry() *DefaultStrategyRegistry {
+	r := &DefaultStrategyRegistry{
+		strategies: make(map[string]LanguageStrategy),
+	}
+	r.Register("csharp", &CSharpStrategy{})
+	r.Register("c", &CStrategy{})
+	r.Register("cpp", &CPPStrategy{})
+	r.Register("java", &JavaStrategy{})
+	r.Register("python", &PythonStrategy{})
+	r.Register("node", &NodeStrategy{})
+	r.Register("ts", &TSStrategy{})
+	return r
+}
+
+func (r *DefaultStrategyRegistry) Get(language string) (LanguageStrategy, bool) {
+	s, exists := r.strategies[language]
+	return s, exists
+}
+
+func (r *DefaultStrategyRegistry) Register(language string, strategy LanguageStrategy) {
+	r.strategies[language] = strategy
+}
+
+type SubmissionService struct {
+	runner   BatchRunner
+	registry StrategyRegistry
+}
+
+func NewSubmissionService(runner BatchRunner, registry StrategyRegistry) *SubmissionService {
+	return &SubmissionService{
+		runner:   runner,
+		registry: registry,
+	}
 }
 
 type CSharpStrategy struct{}
@@ -98,17 +139,7 @@ func (s *TSStrategy) Prepare(submissionID string, sourceCode string) (string, []
 	return "node", []string{jsPath}, []string{tsPath, jsPath}, nil
 }
 
-func init() {
-	RegisterStrategy("csharp", &CSharpStrategy{})
-	RegisterStrategy("c", &CStrategy{})
-	RegisterStrategy("cpp", &CPPStrategy{})
-	RegisterStrategy("java", &JavaStrategy{})
-	RegisterStrategy("python", &PythonStrategy{})
-	RegisterStrategy("node", &NodeStrategy{})
-	RegisterStrategy("ts", &TSStrategy{})
-}
-
-func ProcessSubmission(req judge.SubmissionRequest) judge.SubmissionResponse {
+func (s *SubmissionService) ProcessSubmission(req judge.SubmissionRequest) judge.SubmissionResponse {
 	var execCmd string
 	var execArgs []string
 
@@ -121,7 +152,7 @@ func ProcessSubmission(req judge.SubmissionRequest) judge.SubmissionResponse {
 	}()
 
 	// 1. ROUTING & COMPILATION via Strategy Pattern
-	strategy, exists := strategies[req.Language]
+	strategy, exists := s.registry.Get(req.Language)
 	if !exists {
 		return judge.SubmissionResponse{OverallState: "Unsupported Language"}
 	}
@@ -148,7 +179,7 @@ func ProcessSubmission(req judge.SubmissionRequest) judge.SubmissionResponse {
 		memLimit = 256000
 	}
 
-	results := runBatch.RunBatch(execCmd, execArgs, req.TestCases, timeLimit, memLimit)
+	results := s.runner.RunBatch(execCmd, execArgs, req.TestCases, timeLimit, memLimit)
 
 	// 3. AGGREGATE RESULTS (Cleanup is now handled safely by the `defer` block above)
 	overallState := "Accepted"

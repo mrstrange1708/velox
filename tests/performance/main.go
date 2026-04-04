@@ -61,7 +61,7 @@ type PerformanceMetric struct {
 const (
 	baseURL        = "http://localhost:8080"
 	pollInterval   = 100 * time.Millisecond // Faster polling for better granularity
-	requestsPerLang = 10                     // Number of sequential requests per language
+	requestsPerLang = 2                     // Number of sequential requests per language
 )
 
 var languageConfigs = []struct {

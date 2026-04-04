@@ -17,6 +17,8 @@ func main() {
 	fmt.Println("Velox worker started. Waiting for submissions on queue 'submissions'...")
 
 	// 2. Continuously poll Redis for submissions
+	service := processSubmission.NewSubmissionService(&processSubmission.DefaultRunner{}, processSubmission.NewDefaultRegistry())
+
 	for {
 		raw, found := veloxRedis.PopSubmission("submissions", 5*time.Second)
 		if !found {
@@ -35,7 +37,7 @@ func main() {
 		fmt.Printf("==================================\n")
 
 		// 4. Process the submission
-		response := processSubmission.ProcessSubmission(req)
+		response := service.ProcessSubmission(req)
 
 		// 5. Marshal and push result back to Redis
 		responseJSON, err := json.Marshal(response)
@@ -77,9 +79,10 @@ for line in sys.stdin:
 `, TestCases: testCases},
 	}
 
+	service := processSubmission.NewSubmissionService(&processSubmission.DefaultRunner{}, processSubmission.NewDefaultRegistry())
 	for _, req := range mocks {
 		fmt.Printf("\nProcessing %s (%s)...\n", req.SubmissionID, req.Language)
-		response := processSubmission.ProcessSubmission(req)
+		response := service.ProcessSubmission(req)
 		responseJSON, _ := json.MarshalIndent(response, "", "  ")
 		fmt.Println(string(responseJSON))
 	}

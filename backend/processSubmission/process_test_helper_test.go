@@ -66,7 +66,8 @@ func runLanguageTests(t *testing.T, language string, tests []ExecutionTestCase) 
 				}
 			}
 
-			resp := processSubmission.ProcessSubmission(req)
+			service := processSubmission.NewSubmissionService(&processSubmission.DefaultRunner{}, processSubmission.NewDefaultRegistry())
+			resp := service.ProcessSubmission(req)
 
 			if resp.OverallState != tc.ExpectedState {
 				t.Errorf("\nFAIL: Expected OverallState %q, got %q\nCompiler Error: %v\nResults Dump: %v", 
