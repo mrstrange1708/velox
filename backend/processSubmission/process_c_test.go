@@ -54,12 +54,14 @@ int main() { while(1) {} return 0; }`,
 			SourceCode: `#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+void *global_ptr[50000];
 int main() {
     int i;
     for (i = 0; i < 50000; i++) {
-        void* ptr = malloc(1024 * 1024); // Allocate many MBs
-		if (ptr == NULL) break;
-		memset(ptr, 1, 1024 * 1024); // Touch memory physical allocation
+        global_ptr[i] = malloc(1024 * 1024);
+		if (global_ptr[i] == NULL) break;
+		memset(global_ptr[i], 1, 1024 * 1024);
     }
     return 0;
 }`,

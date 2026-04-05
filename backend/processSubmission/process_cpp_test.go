@@ -48,9 +48,12 @@ int main() { while(true) {} return 0; }`,
 using namespace std;
 int main() {
     vector<vector<int>> matrix;
+    long long sum = 0;
     for (int i=0; i<10000; i++) {
         matrix.push_back(vector<int>(10000, 1));
+        sum += matrix.back()[0];
     }
+    if (sum < 0) return sum;
     return 0;
 }`,
 			MemoryLimitKb: 50 * 1024,

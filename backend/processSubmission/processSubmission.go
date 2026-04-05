@@ -2,8 +2,11 @@ package processSubmission
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 
+	"github.com/evanw/esbuild/pkg/api"
 	"github.com/rishik92/velox/judge"
 )
 
@@ -184,15 +187,22 @@ type NodeStrategy struct {
 type TSStrategy struct{}
 
 func (s *TSStrategy) Prepare(ws Workspace, sourceCode string) (string, []string, error) {
-	sourcePath, err := ws.WriteFile("solution.ts", []byte(sourceCode))
+	result := api.Transform(sourceCode, api.TransformOptions{
+		Loader: api.LoaderTS,
+		Format: api.FormatCommonJS,
+	})
+
+	if len(result.Errors) > 0 {
+		var errMsgs string
+		for _, e := range result.Errors {
+			errMsgs += e.Text + "\n"
+		}
+		return "", nil, fmt.Errorf("compile error: %s", errMsgs)
+	}
+
+	jsPath, err := ws.WriteFile("solution.js", result.Code)
 	if err != nil {
 		return "", nil, &SystemError{msg: StatusSystemErrorWriteRAM}
-	}
-	jsPath := ws.GetAbsolutePath("solution.js")
-
-	cmd := exec.Command("esbuild", sourcePath, "--outfile="+jsPath, "--platform=node", "--format=cjs")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return "", nil, fmt.Errorf("compile error: %s", string(out))
 	}
 	return "node", []string{jsPath}, nil
 }
@@ -303,16 +313,22 @@ func CompileInMemoryJava(submissionID, sourceCode string) (string, string, error
 }
 
 func CompileInMemoryTS(submissionID, sourceCode string) (string, string, error) {
-    sourcePath := fmt.Sprintf("/dev/shm/solution_%s.ts", submissionID)
-    jsPath := fmt.Sprintf("/dev/shm/solution_%s.js", submissionID)
-    os.WriteFile(sourcePath, []byte(sourceCode), 0644)
+	result := api.Transform(sourceCode, api.TransformOptions{
+		Loader: api.LoaderTS,
+		Format: api.FormatCommonJS,
+	})
 
-    cmd := exec.Command("esbuild", sourcePath, "--outfile="+jsPath, "--platform=node", "--format=cjs")
-    
-    if out, err := cmd.CombinedOutput(); err != nil {
-        return jsPath, sourcePath, fmt.Errorf("compile error: %s", string(out))
-    }
-    return jsPath, sourcePath, nil
+	if len(result.Errors) > 0 {
+		var errMsgs string
+		for _, e := range result.Errors {
+			errMsgs += e.Text + "\n"
+		}
+		return "", "", fmt.Errorf("compile error: %s", errMsgs)
+	}
+
+	jsPath := filepath.Join(os.TempDir(), fmt.Sprintf("solution_%s.js", submissionID))
+	os.WriteFile(jsPath, result.Code, 0644)
+	return jsPath, "", nil
 }
 
 func CompileInMemoryCSharp(submissionID, sourceCode string) (string, string, error) {

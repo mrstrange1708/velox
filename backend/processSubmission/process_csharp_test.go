@@ -1,10 +1,15 @@
 package processSubmission_test
 
 import (
+	"os/exec"
 	"testing"
 )
 
 func TestProcessSubmission_CSharp(t *testing.T) {
+	if _, err := exec.LookPath("dotnet"); err != nil {
+		t.Skip("Skipping C# tests: dotnet executable not found in PATH")
+	}
+
 	tests := []ExecutionTestCase{
 		{
 			Name: "CS_Accepted",
