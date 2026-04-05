@@ -10,91 +10,85 @@ This diagram maps every **Go struct** and **standalone function** in the Velox b
 classDiagram
     direction TB
 
-    namespace judge {
-        class SubmissionRequest {
-            +string SubmissionID
-            +string Language
-            +string SourceCode
-            +TestCase[] TestCases
-            +int TimeLimitMs
-            +int MemoryLimitKb
-        }
-
-        class TestCase {
-            +int TestCaseID
-            +string Input
-            +string ExpectedOutput
-        }
-
-        class SubmissionResponse {
-            +string SubmissionID
-            +string OverallState
-            +string CompileError
-            +TestCaseResult[] Results
-        }
-
-        class TestCaseResult {
-            +int TestCaseID
-            +string Status
-            +string ActualOutput
-            +string Input
-            +string ExpectedOutput
-            +string Stderr
-            +int64 TimeMs
-            +int64 MemoryKb
-        }
+    class SubmissionRequest {
+        +string SubmissionID
+        +string Language
+        +string SourceCode
+        +TestCase[] TestCases
+        +int TimeLimitMs
+        +int MemoryLimitKb
     }
 
-    namespace processSubmission {
-        class ProcessSubmissionPkg {
-            <<utility>>
-            +ProcessSubmission(req SubmissionRequest) SubmissionResponse
-            +CompileInMemoryC(submissionID string, sourceCode string) (string, string, error)
-            +CompileInMemoryCPP(submissionID string, sourceCode string) (string, string, error)
-            +CompileInMemoryJava(submissionID string, sourceCode string) (string, string, error)
-            +CompileInMemoryTS(submissionID string, sourceCode string) (string, string, error)
-            +CompileInMemoryCSharp(submissionID string, sourceCode string) (string, string, error)
-        }
+    class TestCase {
+        +int TestCaseID
+        +string Input
+        +string ExpectedOutput
     }
 
-    namespace runBatch {
-        class RunBatchPkg {
-            <<utility>>
-            +RunBatch(execCmd string, execArgs []string, testCases []TestCase, timeLimitMs int, memoryLimitKb int) TestCaseResult[]
-        }
+    class SubmissionResponse {
+        +string SubmissionID
+        +string OverallState
+        +string CompileError
+        +TestCaseResult[] Results
     }
 
-    namespace sharedRedis {
-        class RedisClient {
-            <<singleton>>
-            +context.Context Ctx
-            +redis.Client* Client
-            +Connect() void
-            +PopSubmission(queueName string, timeout Duration) (string, bool)
-            +PushResult(queueName string, data string) error
-            -getEnv(key string, fallback string) string
-        }
+    class TestCaseResult {
+        +int TestCaseID
+        +string Status
+        +string ActualOutput
+        +string Input
+        +string ExpectedOutput
+        +string Stderr
+        +int64 TimeMs
+        +int64 MemoryKb
     }
 
-    namespace cmdApi {
-        class APIServer {
-            <<entrypoint>>
-            +main() void
-            +submitHandler(w ResponseWriter, r *Request) void
-            +statusHandler(w ResponseWriter, r *Request) void
-        }
+    class ProcessSubmissionPkg {
+        <<utility>> processSubmission
+        +ProcessSubmission(req SubmissionRequest) SubmissionResponse
+        +CompileInMemoryC(submissionID, sourceCode)
+        +CompileInMemoryCPP(submissionID, sourceCode)
+        +CompileInMemoryJava(submissionID, sourceCode)
+        +CompileInMemoryTS(submissionID, sourceCode)
+        +CompileInMemoryCSharp(submissionID, sourceCode)
     }
 
-    namespace cmdWorker {
-        class WorkerProcess {
-            <<entrypoint>>
-            +main() void
-        }
+    class RunBatchPkg {
+        <<utility>> runBatch
+        +RunBatch(execCmd, execArgs, testCases, timeLimitMs, memoryLimitKb)
     }
 
-    %% Composition relationships
-    SubmissionRequest "1" *-- "0..*" TestCase : contains
-    SubmissionResponse "1" *-- "0..*" TestCaseResult : contains
+    class RedisClient {
+        <<singleton>> shared/redis
+        +context.Context Ctx
+        +redis.Client Client
+        +Connect()
+        +PopSubmission(queueName, timeout)
+        +PushResult(queueName, data)
+    }
+
+    class APIServer {
+        <<entrypoint>> cmd/api
+        +main()
+        +submitHandler()
+        +statusHandler()
+    }
+
+    class WorkerProcess {
+        <<entrypoint>> cmd/worker
+        +main()
+    }
+
+    %% Relationships
+    SubmissionRequest "1" *-- "many" TestCase : contains
+    SubmissionResponse "1" *-- "many" TestCaseResult : contains
+
+    APIServer ..> RedisClient : pushes to queue
+    WorkerProcess ..> RedisClient : pops from queue
+    WorkerProcess ..> ProcessSubmissionPkg : calls
+    ProcessSubmissionPkg ..> RunBatchPkg : delegates execution
+    ProcessSubmissionPkg ..> SubmissionRequest : consumes
+    ProcessSubmissionPkg ..> SubmissionResponse : produces
 ```
 
 ---

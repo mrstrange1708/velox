@@ -98,7 +98,7 @@ sequenceDiagram
     PS->>+Compiler: exec.Command("g++", src, "-O2", "-o", bin)
     Compiler-->>-PS: Exit code 1 + stderr output
 
-    PS->>PS: Return SubmissionResponse{<br/>  OverallState: "Compile Error",<br/>  CompileError: "error: expected ';'..."}
+    PS->>PS: Return SubmissionResponse: OverallState = "Compile Error"<br/>CompileError = "..."
     PS->>PS: defer cleanup: os.RemoveAll(srcPath, binPath)
     PS-->>-Worker: SubmissionResponse
 

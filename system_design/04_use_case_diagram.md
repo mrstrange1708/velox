@@ -7,49 +7,48 @@ This document identifies all **actors** in the Velox system and the **operations
 ## 4.1 System Use Case Diagram
 
 ```mermaid
-graph TB
-    subgraph Actors
-        User["👤 User<br/>(Developer / Student)"]
-        Admin["🔧 Admin<br/>(DevOps)"]
-        CI["🤖 CI Pipeline<br/>(GitHub Actions)"]
-    end
+flowchart LR
+    User((👤 User<br/>Developer / Student))
+    Admin((🔧 Admin<br/>DevOps))
+    CI((🤖 CI Pipeline<br/>GitHub Actions))
 
     subgraph "Velox System"
+        direction TB
         subgraph "API Server"
-            UC1["Submit Code"]
-            UC2["Check Submission Status"]
-            UC3["Validate Request"]
-            UC4["Generate Submission ID"]
+            UC1([Submit Code])
+            UC2([Check Submission Status])
+            UC3([Validate Request])
+            UC4([Generate Submission ID])
         end
 
         subgraph "Worker"
-            UC5["Compile Source Code"]
-            UC6["Execute Test Cases"]
-            UC7["Measure Time & Memory"]
-            UC8["Enforce Resource Limits"]
-            UC9["Aggregate Results"]
-            UC10["Clean Up Temp Files"]
+            UC5([Compile Source Code])
+            UC6([Execute Test Cases])
+            UC7([Measure Time & Memory])
+            UC8([Enforce Resource Limits])
+            UC9([Aggregate Results])
+            UC10([Clean Up Temp Files])
         end
 
         subgraph "Redis"
-            UC11["Queue Submission"]
-            UC12["Store Results"]
-            UC13["Retrieve Results"]
+            UC11([Queue Submission])
+            UC12([Store Results])
+            UC13([Retrieve Results])
         end
 
         subgraph "Frontend"
-            UC14["View Landing Page"]
-            UC15["Read Documentation"]
-            UC16["Sign In"]
-            UC17["Sign Up"]
-            UC18["Search Documentation"]
+            UC14([View Landing Page])
+            UC15([Read Documentation])
+            UC16([Sign In])
+            UC17([Sign Up])
+            UC18([Search Documentation])
         end
 
         subgraph "Infrastructure"
-            UC19["Build Docker Images"]
-            UC20["Run Load Tests"]
-            UC21["Deploy Stack"]
-            UC22["Run CI Tests"]
+            UC19([Build Docker Images])
+            UC20([Run Load Tests])
+            UC21([Deploy Stack])
+            UC22([Run CI Tests])
         end
     end
 

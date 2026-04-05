@@ -2,63 +2,8 @@
 
 This document shows **how every package and struct depends on the others** — both at the package level (import graph) and at the struct level (data flow).
 
----
 
-## 2.1 Package-Level Dependency Graph
-
-This shows which Go packages import which other packages.
-
-```mermaid
-graph TD
-    subgraph Backend
-        A["cmd/api<br/><i>main.go</i>"]
-        B["cmd/worker<br/><i>main.go</i>"]
-        C["processSubmission<br/><i>processSubmission.go</i>"]
-        D["runBatch<br/><i>runBatch.go</i>"]
-        E["judge<br/><i>judge.go</i>"]
-        F["shared/redis<br/><i>redis.go</i>"]
-    end
-
-    subgraph External
-        G["github.com/google/uuid"]
-        H["github.com/redis/go-redis/v9"]
-        I["os/exec<br/><i>stdlib</i>"]
-        J["encoding/json<br/><i>stdlib</i>"]
-        K["net/http<br/><i>stdlib</i>"]
-        L["syscall<br/><i>stdlib</i>"]
-    end
-
-    A -->|imports| E
-    A -->|imports| F
-    A -->|imports| G
-    A -->|imports| J
-    A -->|imports| K
-
-    B -->|imports| E
-    B -->|imports| C
-    B -->|imports| F
-    B -->|imports| J
-
-    C -->|imports| E
-    C -->|imports| D
-    C -->|imports| I
-
-    D -->|imports| E
-    D -->|imports| L
-
-    F -->|imports| H
-
-    style A fill:#ff5a00,color:#fff,stroke:#333
-    style B fill:#ff5a00,color:#fff,stroke:#333
-    style E fill:#2563eb,color:#fff,stroke:#333
-    style F fill:#16a34a,color:#fff,stroke:#333
-    style C fill:#9333ea,color:#fff,stroke:#333
-    style D fill:#9333ea,color:#fff,stroke:#333
-```
-
----
-
-## 2.2 Struct-Level Relationship Diagram
+## 2.1 Struct-Level Relationship Diagram
 
 This shows how data structures relate to each other and flow through the system.
 
@@ -144,7 +89,7 @@ classDiagram
 
 ---
 
-## 2.3 Frontend Component Hierarchy
+## 2.2 Frontend Component Hierarchy
 
 ```mermaid
 graph TD
@@ -192,9 +137,9 @@ graph TD
 
 ---
 
-## 2.4 Explanation
+## 2.3 Explanation
 
-### Package Dependencies (Section 2.1)
+### Package Dependencies
 
 | Package | Depends On | Why |
 |---------|-----------|-----|

@@ -236,11 +236,11 @@ func CompileInMemoryJava(submissionID, sourceCode string) (string, string, error
 }
 
 func CompileInMemoryTS(submissionID, sourceCode string) (string, string, error) {
-    sourcePath := fmt.Sprintf("/dev/shm/solution_%s.ts", submissionID)
-    jsPath := fmt.Sprintf("/dev/shm/solution_%s.js", submissionID)
+    sourcePath := filepath.Join(os.TempDir(), fmt.Sprintf("solution_%s.ts", submissionID))
+    jsPath := filepath.Join(os.TempDir(), fmt.Sprintf("solution_%s.js", submissionID))
     os.WriteFile(sourcePath, []byte(sourceCode), 0644)
 
-    cmd := exec.Command("esbuild", sourcePath, "--outfile="+jsPath, "--platform=node", "--format=cjs")
+    cmd := exec.Command("npx", "esbuild", sourcePath, "--outfile="+jsPath, "--platform=node", "--format=cjs")
     
     if out, err := cmd.CombinedOutput(); err != nil {
         return jsPath, sourcePath, fmt.Errorf("compile error: %s", string(out))
