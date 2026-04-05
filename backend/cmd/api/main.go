@@ -5,9 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rishik92/velox/auth/db"
+	"github.com/rishik92/velox/auth/handler"
+	"github.com/rishik92/velox/auth/repository"
+	"github.com/rishik92/velox/auth/service"
 	"github.com/rishik92/velox/judge"
 	veloxRedis "github.com/rishik92/velox/shared/redis"
 )
@@ -15,11 +20,40 @@ import (
 func main() {
 	veloxRedis.Connect()
 
+	// Connect to DB
+	database, err := db.Connect()
+	if err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+	defer database.Close()
+
+	if err := database.Ping(); err != nil {
+		log.Fatalf("failed to ping database: %v", err)
+	}
+	fmt.Println("Connected to PostgreSQL database successfully.")
+
+	// Run database migrations
+	if err := db.RunMigrations(database); err != nil {
+		log.Fatalf("failed to run database migrations: %v", err)
+	}
+
+	// Set up Auth Module
+	repo := repository.NewUserRepository(database)
+	svc := service.NewAuthService(repo)
+	authHandler := handler.NewAuthHandler(svc)
+
+	// Auth Routes
+	http.HandleFunc("/auth/signup", authHandler.Signup)
+	http.HandleFunc("/auth/login", authHandler.Login)
+	http.HandleFunc("/auth/logout", authHandler.Logout)
+
+	// General API
 	http.HandleFunc("/submit", submitHandler)
 	http.HandleFunc("/status", statusHandler)
+	http.HandleFunc("/health", healthHandler)
 
 	fmt.Println("API Server running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", corsMiddleware(http.DefaultServeMux)))
 }
 
 func submitHandler(w http.ResponseWriter, r *http.Request) {
@@ -75,4 +109,29 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(raw))
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		env := os.Getenv("GO_ENV")
+
+		var allowedOrigin string
+		if env == "" || env == "development" {
+			allowedOrigin = "*"
+		} else {
+			allowedOrigin = "https://example.com"
+		}
+
+		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

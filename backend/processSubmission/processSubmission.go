@@ -7,10 +7,139 @@ import (
 	"path/filepath"
 
 	"github.com/rishik92/velox/judge"
-	"github.com/rishik92/velox/runBatch"
 )
 
-func ProcessSubmission(req judge.SubmissionRequest) judge.SubmissionResponse {
+type SystemError struct {
+	msg string
+}
+
+func (e *SystemError) Error() string {
+	return e.msg
+}
+
+type LanguageStrategy interface {
+	Prepare(submissionID string, sourceCode string) (execCmd string, execArgs []string, filesToClean []string, err error)
+}
+
+type BatchRunner interface {
+	RunBatch(execCmd string, execArgs []string, testCases []judge.TestCase, timeLimitMs int, memoryLimitKb int) []judge.TestCaseResult
+}
+
+type StrategyRegistry interface {
+	Get(language string) (LanguageStrategy, bool)
+	Register(language string, strategy LanguageStrategy)
+}
+
+type DefaultStrategyRegistry struct {
+	strategies map[string]LanguageStrategy
+}
+
+func NewDefaultRegistry() *DefaultStrategyRegistry {
+	r := &DefaultStrategyRegistry{
+		strategies: make(map[string]LanguageStrategy),
+	}
+	r.Register("csharp", &CSharpStrategy{})
+	r.Register("c", &CStrategy{})
+	r.Register("cpp", &CPPStrategy{})
+	r.Register("java", &JavaStrategy{})
+	r.Register("python", &PythonStrategy{})
+	r.Register("node", &NodeStrategy{})
+	r.Register("ts", &TSStrategy{})
+	return r
+}
+
+func (r *DefaultStrategyRegistry) Get(language string) (LanguageStrategy, bool) {
+	s, exists := r.strategies[language]
+	return s, exists
+}
+
+func (r *DefaultStrategyRegistry) Register(language string, strategy LanguageStrategy) {
+	r.strategies[language] = strategy
+}
+
+type SubmissionService struct {
+	runner   BatchRunner
+	registry StrategyRegistry
+}
+
+func NewSubmissionService(runner BatchRunner, registry StrategyRegistry) *SubmissionService {
+	return &SubmissionService{
+		runner:   runner,
+		registry: registry,
+	}
+}
+
+type CSharpStrategy struct{}
+
+func (s *CSharpStrategy) Prepare(submissionID string, sourceCode string) (string, []string, []string, error) {
+	dirPath, dllPath, err := CompileInMemoryCSharp(submissionID, sourceCode)
+	if err != nil {
+		return "", nil, []string{dirPath}, err
+	}
+	return "dotnet", []string{dllPath}, []string{dirPath}, nil
+}
+
+type CStrategy struct{}
+
+func (s *CStrategy) Prepare(submissionID string, sourceCode string) (string, []string, []string, error) {
+	srcPath, binPath, err := CompileInMemoryC(submissionID, sourceCode)
+	if err != nil {
+		return "", nil, []string{srcPath, binPath}, err
+	}
+	return binPath, []string{}, []string{srcPath, binPath}, nil
+}
+
+type CPPStrategy struct{}
+
+func (s *CPPStrategy) Prepare(submissionID string, sourceCode string) (string, []string, []string, error) {
+	srcPath, binPath, err := CompileInMemoryCPP(submissionID, sourceCode)
+	if err != nil {
+		return "", nil, []string{srcPath, binPath}, err
+	}
+	return binPath, []string{}, []string{srcPath, binPath}, nil
+}
+
+type JavaStrategy struct{}
+
+func (s *JavaStrategy) Prepare(submissionID string, sourceCode string) (string, []string, []string, error) {
+	dirPath, className, err := CompileInMemoryJava(submissionID, sourceCode)
+	if err != nil {
+		return "", nil, []string{dirPath}, err
+	}
+	return "java", []string{"-cp", dirPath, className}, []string{dirPath}, nil
+}
+
+type PythonStrategy struct{}
+
+func (s *PythonStrategy) Prepare(submissionID string, sourceCode string) (string, []string, []string, error) {
+	scriptPath := filepath.Join(os.TempDir(), fmt.Sprintf("solution_%s.py", submissionID))
+	if err := os.WriteFile(scriptPath, []byte(sourceCode), 0644); err != nil {
+		return "", nil, []string{scriptPath}, &SystemError{msg: "System Error: Cannot write to RAM"}
+	}
+	return "python3", []string{scriptPath}, []string{scriptPath}, nil
+}
+
+type NodeStrategy struct{}
+
+func (s *NodeStrategy) Prepare(submissionID string, sourceCode string) (string, []string, []string, error) {
+	scriptPath := filepath.Join(os.TempDir(), fmt.Sprintf("solution_%s.js", submissionID))
+	if err := os.WriteFile(scriptPath, []byte(sourceCode), 0644); err != nil {
+		return "", nil, []string{scriptPath}, &SystemError{msg: "System Error: Cannot write to RAM"}
+	}
+	return "node", []string{scriptPath}, []string{scriptPath}, nil
+}
+
+type TSStrategy struct{}
+
+func (s *TSStrategy) Prepare(submissionID string, sourceCode string) (string, []string, []string, error) {
+	jsPath, tsPath, err := CompileInMemoryTS(submissionID, sourceCode)
+	if err != nil {
+		return "", nil, []string{tsPath, jsPath}, err
+	}
+	return "node", []string{jsPath}, []string{tsPath, jsPath}, nil
+}
+
+func (s *SubmissionService) ProcessSubmission(req judge.SubmissionRequest) judge.SubmissionResponse {
 	var execCmd string
 	var execArgs []string
 
@@ -22,75 +151,25 @@ func ProcessSubmission(req judge.SubmissionRequest) judge.SubmissionResponse {
 		}
 	}()
 
-	// 1. ROUTING & COMPILATION
-	switch req.Language {
-	case "csharp":
-		dirPath, dllPath, err := CompileInMemoryCSharp(req.SubmissionID, req.SourceCode)
-		filesToClean = append(filesToClean, dirPath) // Add to cleanup list IMMEDIATELY
-		if err != nil {
-			return judge.SubmissionResponse{SubmissionID: req.SubmissionID, OverallState: "Compile Error", CompileError: err.Error()}
-		}
-		execCmd = "dotnet"
-		execArgs = []string{dllPath}
-
-	case "c":
-		srcPath, binPath, err := CompileInMemoryC(req.SubmissionID, req.SourceCode)
-		filesToClean = append(filesToClean, srcPath, binPath) 
-		if err != nil {
-			return judge.SubmissionResponse{SubmissionID: req.SubmissionID, OverallState: "Compile Error", CompileError: err.Error()}
-		}
-		execCmd = binPath
-		execArgs = []string{}
-
-	case "cpp":
-		srcPath, binPath, err := CompileInMemoryCPP(req.SubmissionID, req.SourceCode)
-		filesToClean = append(filesToClean, srcPath, binPath)
-		if err != nil {
-			return judge.SubmissionResponse{SubmissionID: req.SubmissionID, OverallState: "Compile Error", CompileError: err.Error()}
-		}
-		execCmd = binPath
-		execArgs = []string{}
-
-	case "java":
-		dirPath, className, err := CompileInMemoryJava(req.SubmissionID, req.SourceCode)
-		filesToClean = append(filesToClean, dirPath)
-		if err != nil {
-			return judge.SubmissionResponse{SubmissionID: req.SubmissionID, OverallState: "Compile Error", CompileError: err.Error()}
-		}
-		execCmd = "java"
-		execArgs = []string{"-cp", dirPath, className}
-
-	case "python":
-		scriptPath := filepath.Join(os.TempDir(), fmt.Sprintf("solution_%s.py", req.SubmissionID))
-		filesToClean = append(filesToClean, scriptPath)
-		if err := os.WriteFile(scriptPath, []byte(req.SourceCode), 0644); err != nil {
-			return judge.SubmissionResponse{OverallState: "System Error: Cannot write to RAM"}
-		}
-		execCmd = "python3"
-		execArgs = []string{scriptPath}
-
-	case "node":
-		scriptPath := filepath.Join(os.TempDir(), fmt.Sprintf("solution_%s.js", req.SubmissionID))
-		filesToClean = append(filesToClean, scriptPath)
-		if err := os.WriteFile(scriptPath, []byte(req.SourceCode), 0644); err != nil {
-			return judge.SubmissionResponse{OverallState: "System Error: Cannot write to RAM"}
-		}
-		execCmd = "node"
-		execArgs = []string{scriptPath}
-
-	case "ts":
-		jsPath, tsPath, err := CompileInMemoryTS(req.SubmissionID, req.SourceCode)
-		filesToClean = append(filesToClean, tsPath, jsPath)
-		if err != nil {
-			return judge.SubmissionResponse{SubmissionID: req.SubmissionID, OverallState: "Compile Error", CompileError: err.Error()}
-		}
-		execCmd = "node"
-		execArgs = []string{jsPath}
-
-	default:
+	// 1. ROUTING & COMPILATION via Strategy Pattern
+	strategy, exists := s.registry.Get(req.Language)
+	if !exists {
 		return judge.SubmissionResponse{OverallState: "Unsupported Language"}
 	}
+
+	cmd, args, cleanupFiles, err := strategy.Prepare(req.SubmissionID, req.SourceCode)
+	filesToClean = append(filesToClean, cleanupFiles...)
 	
+	if err != nil {
+		if sysErr, ok := err.(*SystemError); ok {
+			return judge.SubmissionResponse{OverallState: sysErr.Error()}
+		}
+		return judge.SubmissionResponse{SubmissionID: req.SubmissionID, OverallState: "Compile Error", CompileError: err.Error()}
+	}
+
+	execCmd = cmd
+	execArgs = args
+
 	timeLimit := req.TimeLimitMs
 	if timeLimit <= 0 {
 		timeLimit = 3000
@@ -100,7 +179,7 @@ func ProcessSubmission(req judge.SubmissionRequest) judge.SubmissionResponse {
 		memLimit = 256000
 	}
 
-	results := runBatch.RunBatch(execCmd, execArgs, req.TestCases, timeLimit, memLimit)
+	results := s.runner.RunBatch(execCmd, execArgs, req.TestCases, timeLimit, memLimit)
 
 	// 3. AGGREGATE RESULTS (Cleanup is now handled safely by the `defer` block above)
 	overallState := "Accepted"
@@ -157,16 +236,16 @@ func CompileInMemoryJava(submissionID, sourceCode string) (string, string, error
 }
 
 func CompileInMemoryTS(submissionID, sourceCode string) (string, string, error) {
-	sourcePath := filepath.Join(os.TempDir(), fmt.Sprintf("solution_%s.ts", submissionID))
-	jsPath := filepath.Join(os.TempDir(), fmt.Sprintf("solution_%s.js", submissionID))
-	os.WriteFile(sourcePath, []byte(sourceCode), 0644)
+    sourcePath := fmt.Sprintf("/dev/shm/solution_%s.ts", submissionID)
+    jsPath := fmt.Sprintf("/dev/shm/solution_%s.js", submissionID)
+    os.WriteFile(sourcePath, []byte(sourceCode), 0644)
 
-	// Use tsc for TS to JS compilation with type checking
-	cmd := exec.Command("npx", "tsc", sourcePath, "--skipLibCheck")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return jsPath, sourcePath, fmt.Errorf("compile error: %s", string(out))
-	}
-	return jsPath, sourcePath, nil
+    cmd := exec.Command("esbuild", sourcePath, "--outfile="+jsPath, "--platform=node", "--format=cjs")
+    
+    if out, err := cmd.CombinedOutput(); err != nil {
+        return jsPath, sourcePath, fmt.Errorf("compile error: %s", string(out))
+    }
+    return jsPath, sourcePath, nil
 }
 
 func CompileInMemoryCSharp(submissionID, sourceCode string) (string, string, error) {
