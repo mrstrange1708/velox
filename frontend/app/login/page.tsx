@@ -37,7 +37,7 @@ export default function LoginPage() {
       const { token } = response.data.data;
       localStorage.setItem('velox_token', token);
       
-      router.push('/editor');
+      router.push('/dashboard');
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response) {
         setError(err.response.data.error || 'Login failed. Please check your credentials.');
