@@ -190,7 +190,8 @@ func (s *TSStrategy) Prepare(ws Workspace, sourceCode string) (string, []string,
 	}
 	jsPath := ws.GetAbsolutePath("solution.js")
 
-	cmd := exec.Command("tsc", sourcePath, "--outFile", jsPath, "--module", "commonjs", "--esModuleInterop", "true", "--skipLibCheck", "true")
+	cmd := exec.Command("tsc", sourcePath, "--module", "commonjs", "--esModuleInterop", "true", "--skipLibCheck", "true")
+	cmd.Dir = ws.BaseDir()
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return "", nil, fmt.Errorf("compile error: %s", string(out))
 	}
