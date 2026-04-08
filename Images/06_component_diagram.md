@@ -102,9 +102,9 @@ graph TD
         Checkout["actions/checkout@v4"]
         SetupGo["actions/setup-go@v5<br/>go 1.24.x"]
         SetupDotnet["actions/setup-dotnet@v4<br/>.NET 8.0.x"]
-        InstallTS["npm install -g typescript"]
+        InstallTS["npm install -g typescript esbuild"]
 
-        subgraph "Matrix Strategy (fail-fast: false)"
+        subgraph "Job 1: Unit Tests — Matrix Strategy (fail-fast: false)"
             TestC["go test -race<br/>TestProcessSubmission_C"]
             TestCPP["go test -race<br/>TestProcessSubmission_CPP"]
             TestJava["go test -race<br/>TestProcessSubmission_Java"]
@@ -112,6 +112,16 @@ graph TD
             TestPython["go test -race<br/>TestProcessSubmission_Python"]
             TestTS["go test -race<br/>TestProcessSubmission_TS"]
             TestCSharp["go test -race<br/>TestProcessSubmission_CSharp"]
+        end
+
+        subgraph "Job 2: Build Load Tests (needs: unit-tests)"
+            LoadBuild["go build -o load_test_binary<br/>tests/load/"]
+            LoadArtifact["Upload Artifact:<br/>load-test-binary"]
+        end
+
+        subgraph "Job 3: Build Performance Tests (needs: unit-tests)"
+            PerfBuild["go build -o performance_test_binary<br/>tests/performance/"]
+            PerfArtifact["Upload Artifact:<br/>performance-test-binary"]
         end
     end
 
@@ -125,6 +135,25 @@ graph TD
     InstallTS --> TestTS
     InstallTS --> TestCSharp
 
+    TestC --> LoadBuild
+    TestCPP --> LoadBuild
+    TestJava --> LoadBuild
+    TestNode --> LoadBuild
+    TestPython --> LoadBuild
+    TestTS --> LoadBuild
+    TestCSharp --> LoadBuild
+
+    TestC --> PerfBuild
+    TestCPP --> PerfBuild
+    TestJava --> PerfBuild
+    TestNode --> PerfBuild
+    TestPython --> PerfBuild
+    TestTS --> PerfBuild
+    TestCSharp --> PerfBuild
+
+    LoadBuild --> LoadArtifact
+    PerfBuild --> PerfArtifact
+
     style Push fill:#333,color:#fff
     style TestC fill:#555,color:#fff
     style TestCPP fill:#004482,color:#fff
@@ -133,6 +162,10 @@ graph TD
     style TestPython fill:#3776ab,color:#fff
     style TestTS fill:#3178c6,color:#fff
     style TestCSharp fill:#68217a,color:#fff
+    style LoadBuild fill:#16a34a,color:#fff
+    style LoadArtifact fill:#16a34a,color:#fff
+    style PerfBuild fill:#f59e0b,color:#000
+    style PerfArtifact fill:#f59e0b,color:#000
 ```
 
 ---
@@ -149,7 +182,12 @@ graph TB
 
     subgraph "Docker Compose Stack"
         subgraph "API Service (port 8080)"
-            API["Go HTTP Server<br/>cmd/api/main.go<br/>Endpoints: /submit, /status"]
+            API["Go HTTP Server<br/>cmd/api/main.go<br/>Endpoints: /submit, /status, /health"]
+            AUTH["Auth Module<br/>JWT + API Key Middleware<br/>Signup, Login, Dashboard"]
+        end
+
+        subgraph "PostgreSQL"
+            PG["Neon PostgreSQL<br/>Users + API Keys"]
         end
 
         subgraph "Redis Service (port 6379)"
@@ -160,20 +198,23 @@ graph TB
 
         subgraph "Worker Service"
             WORKER["Go Worker Process<br/>cmd/worker/main.go<br/>Infinite polling loop"]
-            PS["processSubmission<br/>Language routing + compilation"]
+            PS["processSubmission<br/>Strategy Pattern routing + compilation"]
             RB["runBatch<br/>Execution + measurement"]
-            COMPILERS["gcc | g++ | javac | dotnet<br/>python3 | node | npx tsc"]
+            COMPILERS["gcc | g++ | javac | dotnet<br/>python3 | node | esbuild"]
         end
     end
 
-    subgraph "Load Testing"
-        LT["tests/load_test_cmd.go<br/>140 concurrent requests<br/>7 languages × 20 each"]
+    subgraph "Testing"
+        LT["tests/load/main.go<br/>Concurrent load testing<br/>7 languages × 2 each"]
+        PT["tests/performance/main.go<br/>Sequential performance benchmarking<br/>Detailed per-language metrics"]
     end
 
     FE -->|"HTTP POST/GET"| API
     LT -->|"HTTP POST/GET"| API
+    PT -->|"HTTP POST/GET"| API
     API -->|"LPUSH"| SQ
     API -->|"BRPOP"| RQ
+    AUTH -->|"SQL"| PG
     WORKER -->|"BRPOP"| SQ
     WORKER --> PS
     PS --> RB
@@ -182,9 +223,12 @@ graph TB
 
     style FE fill:#0d1117,color:#e6edf3,stroke:#30363d
     style API fill:#ff5a00,color:#fff
+    style AUTH fill:#7c3aed,color:#fff
+    style PG fill:#336791,color:#fff
     style REDIS fill:#dc2626,color:#fff
     style WORKER fill:#2563eb,color:#fff
     style LT fill:#16a34a,color:#fff
+    style PT fill:#f59e0b,color:#000
 ```
 
 ---

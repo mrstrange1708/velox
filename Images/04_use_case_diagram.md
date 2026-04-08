@@ -120,8 +120,8 @@ flowchart LR
 | Field | Value |
 |-------|-------|
 | **Actor** | Worker (internal) |
-| **Supported Languages** | C (gcc), C++ (g++), Java (javac), TypeScript (npx tsc), C# (dotnet build) |
-| **Interpreted Languages** | Python, Node.js — no compilation, file is written to `/tmp` and executed directly |
+| **Supported Languages** | C (gcc), C++ (g++), Java (javac), TypeScript (esbuild), C# (dotnet build) |
+| **Interpreted Languages** | Python, Node.js — no compilation, file is written to temp dir and executed directly |
 | **Error Output** | Compiler stderr is captured and returned as `CompileError` field |
 
 ### UC6: Execute Test Cases
@@ -150,7 +150,7 @@ flowchart LR
 |-------|-------|
 | **Actor** | GitHub Actions CI pipeline |
 | **Trigger** | Push to `main` or Pull Request to `main` |
-| **Strategy** | Matrix build — runs tests for each language independently: C, CPP, Java, Node, Python, TS, CSharp |
+| **Strategy** | 3-job pipeline: (1) Matrix unit tests per language (C, CPP, Java, Node, Python, TS, CSharp), (2) Build load test binary from tests/load/, (3) Build performance test binary from tests/performance/ |
 | **Command** | `go test -v -race ./processSubmission -run TestProcessSubmission_<Language>$` |
 
 ---
@@ -165,7 +165,7 @@ graph LR
         C["C<br/>gcc → binary"]
         CPP["C++<br/>g++ → binary"]
         Java["Java<br/>javac → java -cp"]
-        TS["TypeScript<br/>npx tsc → node"]
+        TS["TypeScript<br/>esbuild → node"]
         CS["C#<br/>dotnet build → dotnet run"]
     end
 
