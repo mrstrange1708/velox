@@ -10,7 +10,7 @@ export default function LogoutButton() {
     // Clear the authentication token
     localStorage.removeItem('token');
     // Redirect to the login page
-    router.push('/login');
+    router.push('/');
   };
 
   return (

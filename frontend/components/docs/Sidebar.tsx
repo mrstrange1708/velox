@@ -13,27 +13,38 @@ export function Sidebar() {
   const [activeId, setActiveId] = useState<string>('introduction');
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveId(entry.target.id);
+    const handleScroll = () => {
+      // Find the currently active section by checking element bounds
+      const headerOffset = 150; // Offset for sticky headers
+      
+      // Get all elements in reverse order (bottom to top)
+      for (let i = docLinks.length - 1; i >= 0; i--) {
+        const section = document.getElementById(docLinks[i].id);
+        if (section) {
+          const rect = section.getBoundingClientRect();
+          // If the top of the section is above our focal point
+          if (rect.top <= headerOffset) {
+            setActiveId(docLinks[i].id);
+            return;
           }
-        });
-      },
-      {
-        // Trigger heavily towards the top of the viewport
-        rootMargin: '-20% 0px -70% 0px'
+        }
       }
-    );
+      
+      // If we're at the very top, just set it to the first item
+      if (window.scrollY < 50) {
+        setActiveId(docLinks[0].id);
+      }
+    };
 
-    // Initial check and observation
-    docLinks.forEach((link) => {
-      const el = document.getElementById(link.id);
-      if (el) observer.observe(el);
-    });
+    // Run once on mount
+    setTimeout(handleScroll, 200);
 
-    return () => observer.disconnect();
+    // Attach to scroll listener
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
