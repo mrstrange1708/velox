@@ -11,11 +11,8 @@ export default function DocsLayout({
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Navbar />
-      <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 flex items-start gap-12">
-        <Sidebar />
-        <main className="flex-1 py-12 lg:py-16 min-w-0">
+      <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex flex-col">
           {children}
-        </main>
       </div>
       <SearchModal />
     </div>

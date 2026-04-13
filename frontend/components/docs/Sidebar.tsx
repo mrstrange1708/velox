@@ -6,6 +6,7 @@ import Link from 'next/link';
 const docLinks = [
   { name: 'Introduction', href: '/docs#introduction', id: 'introduction' },
   { name: 'Architecture', href: '/docs#architecture', id: 'architecture' },
+  { name: 'Execution Lifecycle', href: '/docs#execution-lifecycle', id: 'execution-lifecycle' },
   { name: 'Quick Start', href: '/docs#quick-start', id: 'quick-start' },
 ];
 
