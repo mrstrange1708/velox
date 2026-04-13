@@ -60,10 +60,6 @@ To maintain environment independence, the system doesn't call `os` filesystem co
 - **Location**: `backend/auth/repository/`.
 - **Logic**: `APIKeyRepository` and `UserRepository` wrap the SQL implementation. If you migrate from PostgreSQL to MongoDB, you only change the Repository, and your Auth Services remain untouched.
 
-### **Middleware Pattern (Decorator)**
-- **Location**: `backend/auth/middleware/`.
-- **Logic**: Standard Go pattern where handlers are wrapped in decorators (`RequireAuth`, `SecurityHeaders`). Each layer adds a specific concern (Authentication, Rate Limiting, Headers) before the request hits the handler.
-
 ### **Producer-Consumer (Messaging)**
 - **Location**: `shared/redis/redis.go`.
 - **Logic**: Decouples the API from the Worker. The API "Produces" a job to Redis, and the Worker "Consumes" it. This allows the system to handle sudden spikes in traffic without crashing the API.
