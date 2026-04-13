@@ -10,6 +10,10 @@ interface APIKey {
   project: string;
   preview: string;
   createdAt: string;
+  scopes: string[];
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  rawCreatedAt: string;
 }
 
 export default function DashboardOverview() {
@@ -39,7 +43,11 @@ export default function DashboardOverview() {
                         id: k.id,
                         project: k.name || 'Unnamed Project',
                         preview: k.display_hint || 'vlx_...',
-                        createdAt: new Date(k.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        createdAt: new Date(k.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                        scopes: k.scopes || [],
+                        expiresAt: k.expires_at || null,
+                        lastUsedAt: k.last_used_at || null,
+                        rawCreatedAt: k.created_at,
                     }));
                     setKeys(formattedKeys);
                 }
@@ -61,7 +69,7 @@ export default function DashboardOverview() {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-4">
                 <div>
                     <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-                        <span className="opacity-50">Welcome back,</span> {profile?.name || '...'}
+                        <span className="opacity-50">Welcome back,</span> {profile?.name}
                     </h1>
                     <p className="text-foreground/50 text-sm mt-2">Here is the telemetry snapshot of your active API routes.</p>
                 </div>

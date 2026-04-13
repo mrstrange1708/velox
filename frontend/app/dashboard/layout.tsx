@@ -13,6 +13,13 @@ export default function DashboardLayout({
   const [profile, setProfile] = useState<{name: string, email: string} | null>(null);
 
   useEffect(() => {
+    // Gateway Auth Check
+    const token = localStorage.getItem('velox_token');
+    if (!token) {
+      window.location.href = '/';
+      return;
+    }
+
     // Fetch profile data from backend to hydrate the top-right header
     api.get('/dashboard')
       .then(res => {
@@ -58,7 +65,7 @@ export default function DashboardLayout({
                 <span className="text-sm font-bold text-white">{profile?.name || '...'}</span>
             </div>
             <div className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-sm font-bold text-white group-hover:border-primary/50 transition-colors shadow-sm overflow-hidden relative">
-              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.name || 'User'}`} alt="Avatar" className="w-full h-full object-cover" />
+              <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${profile?.name || 'User'}&backgroundColor=000000&textColor=ffffff`} alt="Avatar" className="w-full h-full object-cover" />
             </div>
           </Link>
           <LogoutButton />

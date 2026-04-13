@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import api from '@/lib/api';
+import APIProjectModal from '@/components/dashboard/APIProjectModal';
 
 interface APIStatsCardProps {
     apiKey: {
@@ -7,12 +8,22 @@ interface APIStatsCardProps {
         project: string;
         preview: string;
         createdAt: string;
+        scopes: string[];
+        expiresAt: string | null;
+        lastUsedAt: string | null;
+        rawCreatedAt: string;
     };
 }
 
-export default function APIStatsCard({ apiKey }: APIStatsCardProps) {
+export default function APIStatsCard({ apiKey: initialApiKey }: APIStatsCardProps) {
+    const [apiKey, setApiKey] = useState(initialApiKey);
     const [stats, setStats] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    
+    // Hover-to-hint state
+    const [isHovering, setIsHovering] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -26,7 +37,6 @@ export default function APIStatsCard({ apiKey }: APIStatsCardProps) {
                 }
             } catch (err) {
                 console.error(`Failed to load stats for key ${apiKey.id}:`, err);
-                // Fallback to empty if it fails so UI doesn't crash completely.
                 if (isMounted) {
                     setStats({ total_requests: 0, success_rate: 0, peak_rpm: 0 });
                 }
@@ -42,68 +52,116 @@ export default function APIStatsCard({ apiKey }: APIStatsCardProps) {
         };
     }, [apiKey.id]);
 
+    const handleMouseEnter = () => {
+        if (isModalOpen) return;
+        hoverTimerRef.current = setTimeout(() => {
+            setIsHovering(true);
+        }, 100); // Tiny delay to prevent flash during rapid mouse panning
+    };
+
+    const handleMouseLeave = () => {
+        setIsHovering(false);
+        if (hoverTimerRef.current) {
+            clearTimeout(hoverTimerRef.current);
+            hoverTimerRef.current = null;
+        }
+    };
+
+    const handleClick = () => {
+        setIsHovering(false);
+        setIsModalOpen(true);
+    };
+
     return (
-        <div className="dev-card p-6 bg-surface/40 flex flex-col border border-white/5 relative overflow-hidden group">
-            {/* Soft backdrop glow to maintain premium feeling */}
-            <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/5 blur-3xl rounded-full pointer-events-none group-hover:bg-primary/10 transition-colors"></div>
-            
-            <div className="flex justify-between items-start mb-6 border-b border-white/5 pb-4">
-                <div>
-                    <div className="flex items-center gap-2 mb-1 relative z-10">
-                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-                        <h3 className="text-lg font-bold text-white">{apiKey.project}</h3>
+        <>
+            <div 
+                className="dev-card p-6 bg-surface/40 flex flex-col border border-white/5 relative overflow-hidden group cursor-pointer"
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+                onClick={handleClick}
+            >
+                
+                {/* Interaction Hint Overlay */}
+                <div 
+                    className={`absolute inset-0 bg-black/60 backdrop-blur-sm z-30 flex items-center justify-center transition-all duration-300 pointer-events-none ${isHovering ? 'opacity-100' : 'opacity-0'}`}
+                >
+                    <div className="flex flex-col items-center gap-2 transform">
+                        <svg className="w-6 h-6 text-primary animate-bounce opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.773 2.853M7.188 2.239l1.89 2.277M7.188 2.239l-4.137 4.137M12 2A10 10 0 1022 12" />
+                        </svg>
+                        <span className="text-xs font-bold text-white uppercase tracking-widest bg-black/50 px-3 py-1 rounded-full border border-white/10">Click to configure</span>
                     </div>
-                    <p className="text-xs text-foreground/50 font-mono tracking-wide relative z-10">{apiKey.preview}</p>
+                </div>
+
+                {/* Soft backdrop glow */}
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/5 blur-3xl rounded-full pointer-events-none group-hover:bg-primary/10 transition-colors"></div>
+                
+                <div className="flex justify-between items-start mb-6 border-b border-white/5 pb-4">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1 relative z-10">
+                            <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                            <h3 className="text-lg font-bold text-white">{apiKey.project}</h3>
+                        </div>
+                        <p className="text-xs text-foreground/50 font-mono tracking-wide relative z-10">{apiKey.preview}</p>
+                    </div>
+                </div>
+
+                <div className="flex-1">
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center h-full py-8 text-white/30">
+                            <div className="w-5 h-5 border-2 border-white/10 border-t-white rounded-full animate-spin mb-3"></div>
+                            <span className="text-xs font-bold font-mono tracking-widest uppercase">Syncing Telemetry</span>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-black/40 p-4 rounded-xl border border-white/5 flex flex-col justify-center relative z-10">
+                                <p className="text-white/40 text-xs font-bold uppercase tracking-wider mb-2">Total Requests</p>
+                                <p className="text-2xl text-white font-black font-mono">
+                                    {stats?.total_requests?.toLocaleString() || 0}
+                                </p>
+                            </div>
+                            
+                            <div className="bg-black/40 p-4 rounded-xl border border-white/5 flex flex-col justify-center relative z-10">
+                                <p className="text-white/40 text-xs font-bold uppercase tracking-wider mb-2">Peak RPM</p>
+                                <p className="text-2xl text-white font-black font-mono">
+                                    {stats?.peak_rpm?.toLocaleString() || 0} <span className="text-sm text-white/30 font-medium">/min</span>
+                                </p>
+                            </div>
+
+                            <div className="bg-black/40 p-4 rounded-xl border border-white/5 flex flex-col justify-center col-span-2 relative z-10">
+                                 <div className="flex justify-between items-end mb-2">
+                                    <p className="text-white/40 text-xs font-bold uppercase tracking-wider">Success Rate</p>
+                                    <span className={`text-sm font-bold ${stats?.success_rate >= 90 ? 'text-success' : 'text-primary'}`}>
+                                        {stats?.success_rate ? stats.success_rate.toFixed(1) : '0.0'}%
+                                    </span>
+                                 </div>
+                                 
+                                 <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                    <div 
+                                        className={`h-full rounded-full transition-all duration-1000 ${stats?.success_rate >= 90 ? 'bg-success' : 'bg-primary'}`} 
+                                        style={{ width: `${stats?.success_rate || 0}%` }}
+                                    ></div>
+                                 </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                
+                <div className="mt-6 text-xs text-white/30 font-mono flex items-center gap-1.5 relative z-10">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Registered: {apiKey.createdAt}
                 </div>
             </div>
 
-            <div className="flex-1">
-                {isLoading ? (
-                    <div className="flex flex-col items-center justify-center h-full py-8 text-white/30">
-                        <div className="w-5 h-5 border-2 border-white/10 border-t-white rounded-full animate-spin mb-3"></div>
-                        <span className="text-xs font-bold font-mono tracking-widest uppercase">Syncing Telemetry</span>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-black/40 p-4 rounded-xl border border-white/5 flex flex-col justify-center">
-                            <p className="text-white/40 text-xs font-bold uppercase tracking-wider mb-2">Total Requests</p>
-                            <p className="text-2xl text-white font-black font-mono">
-                                {stats?.total_requests?.toLocaleString() || 0}
-                            </p>
-                        </div>
-                        
-                        <div className="bg-black/40 p-4 rounded-xl border border-white/5 flex flex-col justify-center">
-                            <p className="text-white/40 text-xs font-bold uppercase tracking-wider mb-2">Peak RPM</p>
-                            <p className="text-2xl text-white font-black font-mono">
-                                {stats?.peak_rpm?.toLocaleString() || 0} <span className="text-sm text-white/30 font-medium">/min</span>
-                            </p>
-                        </div>
-
-                        <div className="bg-black/40 p-4 rounded-xl border border-white/5 flex flex-col justify-center col-span-2">
-                             <div className="flex justify-between items-end mb-2">
-                                <p className="text-white/40 text-xs font-bold uppercase tracking-wider">Success Rate</p>
-                                <span className={`text-sm font-bold ${stats?.success_rate >= 90 ? 'text-success' : 'text-primary'}`}>
-                                    {stats?.success_rate ? stats.success_rate.toFixed(1) : '0.0'}%
-                                </span>
-                             </div>
-                             
-                             <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                <div 
-                                    className={`h-full rounded-full transition-all duration-1000 ${stats?.success_rate >= 90 ? 'bg-success' : 'bg-primary'}`} 
-                                    style={{ width: `${stats?.success_rate || 0}%` }}
-                                ></div>
-                             </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-            
-            <div className="mt-6 text-xs text-white/30 font-mono flex items-center gap-1.5">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Registered: {apiKey.createdAt}
-            </div>
-        </div>
+            <APIProjectModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                apiKey={apiKey} 
+                stats={stats}
+                onUpdate={(newName) => setApiKey({...apiKey, project: newName})} 
+            />
+        </>
     );
 }
