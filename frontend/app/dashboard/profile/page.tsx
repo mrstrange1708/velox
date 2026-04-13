@@ -38,10 +38,9 @@ export default function ProfilePage() {
             {/* Avatar Definition block */}
             <div className="flex flex-col text-center">
                 <div className="w-40 h-40 mx-auto rounded-full bg-white/5 flex items-center justify-center p-2 border border-white/10 shadow-inner mb-4">
-                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.name || 'Admin'}`} alt="Avatar" className="w-full h-full rounded-full" />
+                    <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${profile?.name}&backgroundColor=000000&textColor=ffffff`} alt="Avatar" className="w-full h-full rounded-full" />
                 </div>
-                <h3 className="text-xl font-bold text-white tracking-tight">{profile?.name || '...'}</h3>
-                <p className="text-xs text-white/40 font-mono mt-1">Globally Generated Avatar</p>
+                <h3 className="text-xl font-bold text-white tracking-tight">{profile?.name}</h3>
             </div>
 
             {/* Read-only Info Form */}
