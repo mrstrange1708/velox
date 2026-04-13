@@ -113,7 +113,7 @@ export default function DashboardLayout({
                 {profile?.name || "..."}
               </span>
             </div>
-            <div className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-sm font-bold text-white group-hover:border-primary/50 transition-colors shadow-sm overflow-hidden relative">
+            <div className="w-12 h-12 rounded-full bg-white/10 border border-white/20 hover:border-primary/50 hover:text-primary justify-center flex items-center justify-center text-sm font-bold text-white group-hover:border-primary/50 transition-colors shadow-sm overflow-hidden">
               <img
                 src={`https://api.dicebear.com/7.x/initials/svg?seed=${profile?.name || "User"}&backgroundColor=000000&textColor=ffffff`}
                 alt="Avatar"
@@ -125,7 +125,7 @@ export default function DashboardLayout({
         </div>
       </header>
 
-      <main className="flex-1 p-8 overflow-y-auto w-full">
+      <main className="flex-1 p-8 w-full">
         <div className="max-w-7xl mx-auto space-y-8">{children}</div>
       </main>
     </div>
