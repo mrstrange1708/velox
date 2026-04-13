@@ -414,6 +414,118 @@
                     }
                 }
             }
+        },
+        "/status": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Get the current status and results of a code submission.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Judge"
+                ],
+                "summary": "Check Submission Status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Submission ID",
+                        "name": "submission_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Submission Response (omitted if pending)",
+                        "schema": {
+                            "$ref": "#/definitions/judge.SubmissionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing submission_id",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/submit": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Submit source code for execution against test cases.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Judge"
+                ],
+                "summary": "Submit Code",
+                "parameters": [
+                    {
+                        "description": "Submission Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/judge.SubmissionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "submission_id",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid JSON or limits too high",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to queue submission",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -501,6 +613,99 @@
                 "data": {},
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "judge.SubmissionRequest": {
+            "type": "object",
+            "properties": {
+                "language": {
+                    "description": "e.g., \"cpp\", \"python\"",
+                    "type": "string"
+                },
+                "memory_limit_kb": {
+                    "type": "integer"
+                },
+                "source_code": {
+                    "type": "string"
+                },
+                "submission_id": {
+                    "type": "string"
+                },
+                "test_cases": {
+                    "description": "Up to 20 cases",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/judge.TestCase"
+                    }
+                },
+                "time_limit_ms": {
+                    "type": "integer"
+                }
+            }
+        },
+        "judge.SubmissionResponse": {
+            "type": "object",
+            "properties": {
+                "compile_error": {
+                    "type": "string"
+                },
+                "overall_state": {
+                    "description": "\"Accepted\", \"Wrong Answer\", \"Compile Error\"",
+                    "type": "string"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/judge.TestCaseResult"
+                    }
+                },
+                "submission_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "judge.TestCase": {
+            "type": "object",
+            "properties": {
+                "expected_output": {
+                    "type": "string"
+                },
+                "input": {
+                    "type": "string"
+                },
+                "test_case_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "judge.TestCaseResult": {
+            "type": "object",
+            "properties": {
+                "actual_output": {
+                    "type": "string"
+                },
+                "expected_output": {
+                    "type": "string"
+                },
+                "input": {
+                    "type": "string"
+                },
+                "memory_kb": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "\"Passed\", \"Wrong Answer\", \"Runtime Error\"",
+                    "type": "string"
+                },
+                "stderr": {
+                    "type": "string"
+                },
+                "test_case_id": {
+                    "type": "integer"
+                },
+                "time_ms": {
+                    "type": "integer"
                 }
             }
         },

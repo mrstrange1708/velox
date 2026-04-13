@@ -132,6 +132,20 @@ type JudgeHandler struct {
 	apiLogSvc *service.APILogService
 }
 
+// Submit is an HTTP handler to submit code for execution.
+// @Summary Submit Code
+// @Description Submit source code for execution against test cases.
+// @Tags Judge
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body judge.SubmissionRequest true "Submission Request"
+// @Success 202 {object} map[string]string "submission_id"
+// @Failure 400 {string} string "Invalid JSON or limits too high"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 405 {string} string "Method not allowed"
+// @Failure 500 {string} string "Failed to queue submission"
+// @Router /submit [post]
 func (h *JudgeHandler) Submit(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -180,6 +194,17 @@ func (h *JudgeHandler) Submit(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, `{"submission_id": "%s"}`, req.SubmissionID)
 }
 
+// Status retrieves the execution result of a submission.
+// @Summary Check Submission Status
+// @Description Get the current status and results of a code submission.
+// @Tags Judge
+// @Produce json
+// @Security Bearer
+// @Param submission_id query string true "Submission ID"
+// @Success 200 {object} judge.SubmissionResponse "Submission Response (omitted if pending)"
+// @Failure 400 {string} string "Missing submission_id"
+// @Failure 401 {string} string "Unauthorized"
+// @Router /status [get]
 func (h *JudgeHandler) Status(w http.ResponseWriter, r *http.Request) {
 	subID := r.URL.Query().Get("submission_id")
 	if subID == "" {
